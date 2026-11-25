@@ -100,7 +100,7 @@ mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
   <a href="#/recherche" data-tab="search"><span class="ic">🔍</span>Recherche</a>
   <a href="#/sauvegarde" data-tab="backup"><span class="ic">💾</span>Sauvegarde</a>
 </nav>
-<input type="file" id="importFile" accept=".json,application/json" hidden>
+<input type="file" id="importFile" hidden>
 <script>
 "use strict";
 /* ---------- Stockage local (IndexedDB, rien ne part sur internet) ---------- */
@@ -138,16 +138,24 @@ const getPhoto = id => tx(["photos"], "readonly", t => req(t.objectStore("photos
 const allProcedures = () => tx(["procedures"], "readonly", t => req(t.objectStore("procedures").getAll()));
 const getProcedure = id => tx(["procedures"], "readonly", t => req(t.objectStore("procedures").get(id)));
 async function saveRecord(store, rec, newPhotos, removedPhotoIds){
+  const used = removedPhotoIds.length ? await photosInUse(rec.id) : new Set();
   return tx([store,"photos"], "readwrite", t => {
     const ps = t.objectStore("photos");
     for(const p of newPhotos) ps.put(p);
-    for(const id of removedPhotoIds) ps.delete(id);
+    for(const id of removedPhotoIds) if(!used.has(id)) ps.delete(id);
     t.objectStore(store).put(rec);
   });
 }
+/* Une photo peut être partagée par deux versions d'une même fiche : on ne l'efface que si plus rien ne l'utilise */
+async function photosInUse(exceptId){
+  const used = new Set();
+  for(const r of [...await allInterventions(), ...await allProcedures()]) if(r.id !== exceptId) for(const id of r.photos || []) used.add(id);
+  return used;
+}
 async function deleteRecord(store, rec){
+  const used = await photosInUse(rec.id);
   return tx([store,"photos"], "readwrite", t => {
-    for(const id of rec.photos || []) t.objectStore("photos").delete(id);
+    for(const id of rec.photos || []) if(!used.has(id)) t.objectStore("photos").delete(id);
     t.objectStore(store).delete(rec.id);
   });
 }
@@ -166,6 +174,8 @@ const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getT
 const fmtDate = s => { if(!s) return ""; const [y,m,d] = s.split("-"); return `${d}/${m}/${y}`; };
 const byDateDesc = (a,b) => (b.date||"").localeCompare(a.date||"") || (b.createdAt||0) - (a.createdAt||0);
 const numCmp = (a,b) => a.localeCompare(b, "fr", {numeric:true, sensitivity:"base"});
+const myName = () => { try{ return (localStorage.getItem("auteur") || "").trim(); }catch(e){ return ""; } };
+const byWho = r => r.auteur ? ` · par ${esc(r.auteur)}${r.modifiePar && r.modifiePar !== r.auteur ? ` (modifié par ${esc(r.modifiePar)})` : ""}` : "";
 const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
 const enc = encodeURIComponent, dec = decodeURIComponent;
 function toast(msg){
@@ -185,7 +195,7 @@ async function fillPhotos(root){
 function ask(msg, okText = "OK", cancelText = "Annuler"){
   return new Promise(res => {
     const v = document.createElement("div"); v.className = "viewer";
-    v.innerHTML = `<div class="card" style="max-width:340px;margin:16px"><p style="margin-top:0">${esc(msg)}</p>
+    v.innerHTML = `<div class="card" style="max-width:340px;margin:16px"><p style="margin-top:0;white-space:pre-line">${esc(msg)}</p>
       <div class="actions">${cancelText ? `<button class="btn" data-r="0">${esc(cancelText)}</button>` : ""}<button class="btn primary" data-r="1">${esc(okText)}</button></div></div>`;
     v.onclick = e => { const b = e.target.closest("button[data-r]"); if(b){ v.remove(); res(b.dataset.r === "1"); } };
     document.body.appendChild(v);
@@ -282,7 +292,7 @@ async function pageMachine(type, num){
   app.innerHTML = `<h2>Historique · ${plural(all.length, "intervention")}</h2><div class="list">` + all.map(iv => `
     <a class="row" href="#/intervention/${iv.id}"><span class="ic">📝</span><span class="main">
       <span class="t">${fmtDate(iv.date)} — ${esc(iv.defaut || "Sans défaut indiqué")}</span>
-      <span class="s">${[esc((iv.notes || "").split("\n")[0]), iv.photos?.length ? "📷 " + iv.photos.length : ""].filter(Boolean).join(" · ") || "&nbsp;"}</span></span>
+      <span class="s">${[iv.auteur ? "👤 " + esc(iv.auteur) : "", esc((iv.notes || "").split("\n")[0]), iv.photos?.length ? "📷 " + iv.photos.length : ""].filter(Boolean).join(" · ") || "&nbsp;"}</span></span>
       <span class="chev">›</span></a>`).join("") + `</div>` + fab(`#/nouveau/${enc(type)}/${enc(num)}`);
 }
 
@@ -291,7 +301,7 @@ async function pageIntervention(id){
   if(!iv){ location.hash = "#/"; return; }
   setHeader(`${iv.type} n° ${iv.numero}`, `#/machine/${enc(iv.type)}/${enc(iv.numero)}`, "home");
   app.innerHTML = `<div class="card">
-      <div class="meta">Intervention du ${fmtDate(iv.date)}</div>
+      <div class="meta">Intervention du ${fmtDate(iv.date)}${byWho(iv)}</div>
       <div class="field-t">Machine</div><div class="field-v"><strong>${esc(iv.type)} n° ${esc(iv.numero)}</strong></div>
       <div class="field-t">Défaut de base</div><div class="field-v">${esc(iv.defaut) || "—"}</div>
       <div class="field-t">Notes</div><div class="field-v">${esc(iv.notes) || "—"}</div>
@@ -362,6 +372,7 @@ async function pageForm(existingId, preType = "", preNum = ""){
     <datalist id="types">${types.map(t => `<option value="${esc(t)}">`).join("")}</datalist>
     <datalist id="nums"></datalist>
     <label for="date">Date</label><input type="date" id="date" required value="${esc(iv?.date || today())}">
+    <label for="who">Intervenant</label><input type="text" id="who" placeholder="ex. Kevin" value="${esc(iv ? (iv.auteur || "") : myName())}" autocapitalize="words">
     <label for="defaut">Défaut de base</label><input type="text" id="defaut" placeholder="ex. Problème de trajectoire" value="${esc(iv?.defaut || "")}">
     <label for="notes">Notes</label><textarea id="notes" placeholder="Ce qui a été constaté, fait, pièces changées…">${esc(iv?.notes || "")}</textarea>
     ${PHOTO_FIELD}
@@ -382,8 +393,12 @@ async function pageForm(existingId, preType = "", preNum = ""){
     const rec = {
       id: iv?.id || uid(), type, numero, date: $("#date").value || today(),
       defaut: $("#defaut").value.trim(), notes: $("#notes").value.trim(),
-      photos: photos.map(p => p.id), createdAt: iv?.createdAt || now, updatedAt: now
+      photos: photos.map(p => p.id), createdAt: iv?.createdAt || now, updatedAt: now,
+      auteur: $("#who").value.trim(), modifiePar: myName(),
+      hist: iv ? [...(iv.hist || []), iv.updatedAt] : []
     };
+    if(!rec.auteur){ toast("Indiquez le nom de l'intervenant"); return; }
+    if(!myName()) try{ localStorage.setItem("auteur", rec.auteur); }catch(e){}
     try{
       await saveIntervention(rec, added, removed);
       toast("Intervention enregistrée ✔");
@@ -428,7 +443,7 @@ async function pageProcedure(id){
   if(!p){ location.hash = "#/procedures"; return; }
   setHeader(p.nom, "#/procedures", "proc");
   app.innerHTML = `<div class="card">
-      <div class="meta">Procédure${p.machine ? " · " + esc(p.machine) : ""} · mise à jour le ${new Date(p.updatedAt).toLocaleDateString("fr-FR")}</div>
+      <div class="meta">Procédure${p.machine ? " · " + esc(p.machine) : ""} · mise à jour le ${new Date(p.updatedAt).toLocaleDateString("fr-FR")}${byWho(p)}</div>
       <div class="field-t">Nom</div><div class="field-v"><strong>${esc(p.nom)}</strong></div>
       <div class="field-t">Notes</div><div class="field-v">${esc(p.notes) || "—"}</div>
       ${p.photos?.length ? `<div class="field-t">Photos</div><div class="photos">${p.photos.map(x =>
@@ -464,7 +479,9 @@ async function pageProcForm(existingId){
     if(!nom){ toast("Indiquez le nom de la procédure"); return; }
     const now = Date.now();
     const rec = { id: p?.id || uid(), nom, machine: normType($("#machine").value), notes: $("#notes").value.trim(),
-      photos: photos.map(x => x.id), createdAt: p?.createdAt || now, updatedAt: now };
+      photos: photos.map(x => x.id), createdAt: p?.createdAt || now, updatedAt: now,
+      auteur: p ? (p.auteur || "") : myName(), modifiePar: myName(),
+      hist: p ? [...(p.hist || []), p.updatedAt] : [] };
     try{
       await saveRecord("procedures", rec, added, removed);
       toast("Procédure enregistrée ✔");
@@ -499,7 +516,7 @@ async function pageSearch(){
         ${snippet(p.notes, words)}</span><span class="chev">›</span></a>`).join("") + `</div>` : "")
       + (hits.length ? `<h2>Interventions · ${hits.length}</h2><div class="list">` + hits.map(iv => `
       <a class="row" href="#/intervention/${iv.id}"><span class="ic">📝</span><span class="main">
-        <span class="t">${hl(iv.type + " n° " + iv.numero, words)} · ${fmtDate(iv.date)}</span>
+        <span class="t">${hl(iv.type + " n° " + iv.numero, words)} · ${fmtDate(iv.date)}${iv.auteur ? " · 👤 " + esc(iv.auteur) : ""}</span>
         <span class="s" style="white-space:normal">${hl(iv.defaut || "—", words)}</span>
         ${snippet(iv.notes, words)}</span><span class="chev">›</span></a>`).join("") + `</div>` : "");
   };
@@ -548,6 +565,19 @@ async function pageBackup(){
       <span>Tout est enregistré <strong>uniquement sur ce téléphone</strong>. Rien n'est envoyé sur internet.</span></div>
       <p class="meta">${plural(all.length, "intervention")} · ${plural(procs.length, "procédure")} · ${plural(nPhotos, "photo")}${used}${persisted ? " · stockage protégé ✔" : ""}</p>
     </div>
+    <h2>Votre prénom</h2>
+    <div class="card">
+      <p style="margin-top:0">Il est noté sur chaque fiche créée sur ce téléphone, pour savoir qui l'a écrite quand vous échangez avec vos collègues.</p>
+      <input type="text" id="me" placeholder="ex. Kevin" value="${esc(myName())}" autocapitalize="words">
+    </div>
+    <h2>Échanger avec des collègues</h2>
+    <div class="card">
+      <p style="margin-top:0"><strong>1. Envoyer :</strong> appuyez sur le bouton, puis choisissez <strong>AirDrop</strong> et le téléphone de votre collègue.</p>
+      <button class="btn primary block" id="send">📤 Envoyer mes fiches</button>
+      <p><strong>2. Recevoir :</strong> quand votre collègue vous envoie son fichier par AirDrop, enregistrez-le dans « Fichiers », puis appuyez ici et choisissez-le.</p>
+      <button class="btn block" id="recv">📥 Recevoir des fiches</button>
+      <p class="hint">Rien n'est jamais écrasé : les fiches de chacun s'ajoutent, et si une même fiche a été modifiée des deux côtés, les deux versions sont gardées. Faites-le dans les deux sens. À plusieurs, ça marche aussi : chacun envoie à chacun, ou un seul rassemble tout et renvoie aux autres.</p>
+    </div>
     <h2>Faire une copie de sécurité</h2>
     <div class="card">
       <p style="margin-top:0">Crée un fichier avec toutes vos interventions, procédures et photos. Gardez-le dans « Fichiers » (iPhone) ou « Téléchargements » (Android), ou sur un ordinateur.
@@ -557,17 +587,23 @@ async function pageBackup(){
     </div>
     <h2>Restaurer une copie</h2>
     <div class="card">
-      <p style="margin-top:0">Choisissez un fichier de copie de sécurité. Les interventions et procédures qu'il contient sont ajoutées (celles déjà présentes sont mises à jour, rien n'est effacé).</p>
+      <p style="margin-top:0">Choisissez un fichier de copie de sécurité. Les fiches qu'il contient sont ajoutées à celles du téléphone, rien n'est effacé.</p>
       <button class="btn block" id="imp">📂 Choisir un fichier de copie</button>
     </div>`;
   const last = localStorage.getItem("lastExport");
   if(last) $("#lastexp").textContent = "Dernière copie : " + new Date(+last).toLocaleString("fr-FR");
-  $("#exp").onclick = exportBackup;
-  $("#imp").onclick = () => $("#importFile").click();
+  $("#exp").onclick = () => exportBackup($("#exp"), "copie");
+  $("#send").onclick = () => exportBackup($("#send"), "partage");
+  $("#imp").onclick = $("#recv").onclick = () => $("#importFile").click();
+  $("#me").onchange = () => {
+    const n = $("#me").value.trim();
+    if(!n){ $("#me").value = myName(); toast("Le prénom ne peut pas être vide"); return; }
+    try{ localStorage.setItem("auteur", n); toast("Prénom enregistré ✔"); }catch(e){}
+  };
 }
 
-async function exportBackup(){
-  const btn = $("#exp"); btn.disabled = true; btn.textContent = "Préparation…";
+async function exportBackup(btn, mode){
+  const label = btn.textContent; btn.disabled = true; btn.textContent = "Préparation…";
   try{
     const all = await allInterventions();
     const procs = await allProcedures();
@@ -575,8 +611,9 @@ async function exportBackup(){
     for(const iv of [...all, ...procs]) for(const id of iv.photos || []){
       const p = await getPhoto(id); if(p) photos[id] = await blobToDataURL(p.blob);
     }
-    const data = JSON.stringify({app:"interventions", version:2, exportedAt:new Date().toISOString(), interventions:all, procedures:procs, photos});
-    const name = `interventions-sauvegarde-${today()}.json`;
+    const data = JSON.stringify({app:"interventions", version:2, exportedAt:new Date().toISOString(), from:myName(), interventions:all, procedures:procs, photos});
+    const who = myName().normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const name = mode === "partage" ? `interventions-de-${who || "collegue"}-${today()}.json` : `interventions-sauvegarde-${today()}.json`;
     const file = new File([data], name, {type:"application/json"});
     let done = false;
     if(navigator.canShare && navigator.canShare({files:[file]})){
@@ -587,11 +624,13 @@ async function exportBackup(){
       const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name;
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     }
-    localStorage.setItem("lastExport", Date.now());
-    toast("Copie de sécurité créée ✔");
-    $("#lastexp").textContent = "Dernière copie : " + new Date().toLocaleString("fr-FR");
-  }catch(e){ alert("La copie a échoué : " + (e?.message || e)); }
-  finally{ btn.disabled = false; btn.textContent = "💾 Créer la copie de sécurité"; }
+    if(mode === "copie"){
+      try{ localStorage.setItem("lastExport", Date.now()); }catch(e){}
+      toast("Copie de sécurité créée ✔");
+      $("#lastexp").textContent = "Dernière copie : " + new Date().toLocaleString("fr-FR");
+    } else toast("Fiches envoyées ✔");
+  }catch(e){ alert("L'envoi a échoué : " + (e?.message || e)); }
+  finally{ btn.disabled = false; btn.textContent = label; }
 }
 
 $("#importFile").onchange = async e => {
@@ -600,15 +639,48 @@ $("#importFile").onchange = async e => {
   try{
     const data = JSON.parse(await f.text());
     if(data.app !== "interventions" || !Array.isArray(data.interventions)) throw new Error("Ce fichier n'est pas une copie de l'app Interventions.");
-    const photoRecs = [];
-    for(const [id, url] of Object.entries(data.photos || {})) photoRecs.push({id, blob: await dataURLToBlob(url)});
     const procs = Array.isArray(data.procedures) ? data.procedures : [];
+    /* Fusion : on ajoute ce qui manque, et pour une même fiche on garde la version la plus récente */
+    const mine = new Map();
+    for(const r of await allInterventions()) mine.set("i" + r.id, r);
+    for(const r of await allProcedures()) mine.set("p" + r.id, r);
+    const plan = [], count = {added:0, updated:0, same:0, both:0};
+    for(const [store, list, k] of [["interventions", data.interventions, "i"], ["procedures", procs, "p"]]){
+      for(const r of list){
+        if(!r || !r.id) continue;
+        const cur = mine.get(k + r.id);
+        if(!cur){
+          /* copie « en double » d'une version que j'ai déjà (ou dont j'ai la suite) : inutile de la rajouter */
+          const orig = r.copyOf && mine.get(k + r.copyOf.id);
+          if(orig && (orig.updatedAt === r.copyOf.updatedAt || (orig.hist || []).includes(r.copyOf.updatedAt))){ count.same++; continue; }
+          plan.push([store, r, null]); count.added++; continue;
+        }
+        const rh = r.hist || [], ch = cur.hist || [];
+        if((r.updatedAt || 0) === (cur.updatedAt || 0) || ch.includes(r.updatedAt)) count.same++;      /* déjà à jour, ou j'ai une version plus avancée */
+        else if(rh.includes(cur.updatedAt)){ plan.push([store, r, cur]); count.updated++; }               /* la sienne est la suite de la mienne */
+        else {                                                                                              /* modifiée des deux côtés : on garde les deux */
+          plan.push([store, {...r, id: r.id + "-" + (r.modifiePar || "copie").replace(/[^A-Za-z0-9]/g, "") + "-" + r.updatedAt, copyOf: {id: r.id, updatedAt: r.updatedAt}}, null]);
+          count.both++;
+        }
+      }
+    }
+    const photoRecs = [];
+    for(const [, r] of plan) for(const id of r.photos || []){
+      const url = data.photos?.[id];
+      if(url && !(await getPhoto(id))) photoRecs.push({id, blob: await dataURLToBlob(url)});
+    }
+    const usedElsewhere = new Set();
+    for(const r of mine.values()) if(!plan.some(([, x]) => x.id === r.id)) for(const id of r.photos || []) usedElsewhere.add(id);
     await tx(["interventions","procedures","photos"], "readwrite", t => {
       for(const p of photoRecs) t.objectStore("photos").put(p);
-      for(const iv of data.interventions) t.objectStore("interventions").put(iv);
-      for(const p of procs) t.objectStore("procedures").put(p);
+      for(const [store, r, cur] of plan){
+        t.objectStore(store).put(r);
+        /* photos retirées dans la version plus récente */
+        for(const id of cur?.photos || []) if(!(r.photos || []).includes(id) && !usedElsewhere.has(id)) t.objectStore("photos").delete(id);
+      }
     });
-    toast(`Restauré : ${plural(data.interventions.length, "intervention")}, ${plural(procs.length, "procédure")} ✔`);
+    const from = data.from ? ` de ${data.from}` : "";
+    toast(`Synchronisé${from} ✔ ${count.added} nouvelle${count.added > 1 ? "s" : ""}, ${count.updated} mise${count.updated > 1 ? "s" : ""} à jour${count.both ? `, ${count.both} gardée${count.both > 1 ? "s" : ""} en double` : ""}`);
     route();
   }catch(err){ alert("Restauration impossible : " + (err?.message || err)); }
 };
@@ -616,10 +688,32 @@ $("#importFile").onchange = async e => {
 /* Demande au téléphone de ne pas effacer les données automatiquement */
 async function askPersist(){ try{ if(navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch(e){} }
 
+/* ---------- Premier lancement : demander le nom ---------- */
+function pageWelcome(){
+  setHeader("Bienvenue", null, "");
+  app.innerHTML = `<div class="card" style="margin-top:20px">
+      <p style="margin-top:0;font-size:22px"><strong>👋 Bienvenue dans Interventions</strong></p>
+      <p>Avant de commencer, indiquez votre prénom. Il sera noté sur chaque fiche que vous créez sur ce téléphone, pour que vos collègues sachent qui l'a écrite quand vous échangez vos fiches.</p>
+      <form id="wf"><label for="wname">Votre prénom</label>
+      <input type="text" id="wname" required placeholder="ex. Kevin" autocapitalize="words" autocomplete="given-name">
+      <button class="btn primary block" type="submit">Commencer</button></form>
+      <p class="hint">Vous pourrez le changer plus tard dans l'onglet Sauvegarde.</p>
+    </div>`;
+  $("#wf").onsubmit = e => {
+    e.preventDefault();
+    const n = $("#wname").value.trim(); if(!n) return;
+    try{ localStorage.setItem("auteur", n); }catch(err){}
+    toast(`Bonjour ${n} ✔`); route();
+  };
+  $("#wname").focus();
+}
+
 /* ---------- Navigation ---------- */
 async function route(){
   const parts = location.hash.replace(/^#\/?/, "").split("/").map(dec);
   window.scrollTo(0, 0);
+  let canStore = true; try{ localStorage.setItem("_t", "1"); }catch(e){ canStore = false; }
+  if(canStore && !myName()) return pageWelcome();
   try{
     switch(parts[0]){
       case "": case undefined: return await pageHome();

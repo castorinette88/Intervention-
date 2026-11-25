@@ -1,5 +1,5 @@
 // Garde l'app disponible hors connexion. Les données (interventions, photos) ne passent jamais par ici.
-const CACHE = "interventions-v2";
+const CACHE = "interventions-v3";
 const FILES = ["./", "index.html", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
