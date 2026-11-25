@@ -103,7 +103,7 @@ mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
 <input type="file" id="importFile" hidden>
 <script>
 "use strict";
-const APP_VERSION = "5";
+const APP_VERSION = "6";
 /* ---------- Stockage local (IndexedDB, rien ne part sur internet) ---------- */
 const DB_NAME = "interventions-db";
 let dbp = null;
@@ -228,7 +228,7 @@ async function shrinkImage(file){
     const c = document.createElement("canvas");
     c.width = Math.round(bmp.naturalWidth * sc); c.height = Math.round(bmp.naturalHeight * sc);
     c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.72));
     return blob || file;
   }catch(e){ return file; }
 }

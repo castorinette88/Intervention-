@@ -1,5 +1,5 @@
 // Garde l'app disponible hors connexion. Les données (interventions, photos) ne passent jamais par ici.
-const VERSION = "5";
+const VERSION = "6";
 const CACHE = "interventions-v" + VERSION;
 const FILES = ["./", "index.html", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => {
