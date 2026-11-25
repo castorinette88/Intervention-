@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Interventions</title>
+<meta name="description" content="Carnet d'interventions par machine, stocké uniquement sur le téléphone.">
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Interventions">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f5f8; --card:#ffffff; --text:#1b2430; --muted:#5f6b7a; --line:#dde2e9;
+  --accent:#1f4e79; --accent-soft:#e3edf7; --danger:#b3261e; --ok:#2e7d32; --mark:#ffe58a;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#11161d; --card:#1b232d; --text:#e7ecf2; --muted:#9aa7b6; --line:#2c3743;
+    --accent:#7fb3e6; --accent-soft:#1f3347; --danger:#f2867e; --ok:#7cc884; --mark:#6b5a12;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display:flex;align-items:center;gap:10px;min-height:52px}
+@media (prefers-color-scheme: dark){header{background:#16324d}}
+header h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button.back{background:none;border:0;color:#fff;font-size:26px;line-height:1;padding:0 6px 0 0;cursor:pointer}
+main{padding:14px 16px 90px;max-width:720px;margin:0 auto}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-top:1px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs a{flex:1;text-align:center;padding:8px 4px 10px;color:var(--muted);text-decoration:none;font-size:12px}
+nav.tabs a .ic{display:block;font-size:22px;line-height:1.2}
+nav.tabs a.on{color:var(--accent);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.list{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.row{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}
+.row:last-child{border-bottom:0}
+.row .ic{font-size:24px}
+.row .main{flex:1;min-width:0}
+.row .t,.row .s{display:block}
+.row .t{font-weight:600}
+.row .s{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .chev{color:var(--muted);font-size:20px}
+.badge{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 9px;font-size:13px;font-weight:600}
+h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 2px 8px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.empty .big{font-size:44px}
+label{display:block;font-weight:600;margin:12px 0 6px}
+input[type=text],input[type=date],input[type=search],textarea,select{width:100%;font:inherit;color:var(--text);background:var(--card);
+  border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+textarea{min-height:120px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.two{display:flex;gap:10px}.two>div{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:600;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--text);padding:12px 16px;cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){.btn.primary{color:#0d1b29}}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.btn.block{width:100%;margin-top:10px}
+.fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:6;border-radius:999px;padding:14px 20px;
+  box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.photos .ph{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--line)}
+.photos img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer}
+.photos .del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:0;border-radius:999px;width:28px;height:28px;font-size:16px;cursor:pointer}
+.photo-btns{display:flex;gap:8px;flex-wrap:wrap}
+.photo-btns label{margin:0;font-weight:600}
+.meta{color:var(--muted);font-size:14px}
+.field-t{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:12px}
+.field-v{white-space:pre-wrap;word-wrap:break-word}
+mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
+.viewer{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:20;display:flex;align-items:center;justify-content:center}
+.viewer img{max-width:100%;max-height:100%}
+.viewer button{position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:999px;width:40px;height:40px;font-size:20px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom));background:#222;color:#fff;
+  padding:10px 16px;border-radius:999px;z-index:30;font-size:15px;max-width:90%;text-align:center}
+.actions{display:flex;gap:10px;margin-top:14px}.actions .btn{flex:1}
+.hint{color:var(--muted);font-size:14px;margin:6px 2px}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+</style>
+</head>
+<body>
+<header>
+  <button class="back" id="back" hidden aria-label="Retour">‹</button>
+  <h1 id="title">Interventions</h1>
+</header>
+<main id="app"></main>
+<nav class="tabs">
+  <a href="#/" data-tab="home"><span class="ic">📁</span>Interventions</a>
+  <a href="#/procedures" data-tab="proc"><span class="ic">📘</span>Procédures</a>
+  <a href="#/recherche" data-tab="search"><span class="ic">🔍</span>Recherche</a>
+  <a href="#/sauvegarde" data-tab="backup"><span class="ic">💾</span>Sauvegarde</a>
+</nav>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<script>
+"use strict";
+/* ---------- Stockage local (IndexedDB, rien ne part sur internet) ---------- */
+const DB_NAME = "interventions-db";
+let dbp = null;
+function db(){
+  if(!dbp) dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 2);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if(!d.objectStoreNames.contains("interventions")) d.createObjectStore("interventions", {keyPath:"id"});
+      if(!d.objectStoreNames.contains("photos")) d.createObjectStore("photos", {keyPath:"id"});
+      if(!d.objectStoreNames.contains("procedures")) d.createObjectStore("procedures", {keyPath:"id"});
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function tx(stores, mode, fn){
+  const d = await db();
+  return new Promise((res, rej) => {
+    const t = d.transaction(stores, mode);
+    let out;
+    Promise.resolve(fn(t)).then(v => out = v);
+    t.oncomplete = () => res(out);
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
+}
+const req = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const allInterventions = () => tx(["interventions"], "readonly", t => req(t.objectStore("interventions").getAll()));
+const getIntervention = id => tx(["interventions"], "readonly", t => req(t.objectStore("interventions").get(id)));
+const getPhoto = id => tx(["photos"], "readonly", t => req(t.objectStore("photos").get(id)));
+const allProcedures = () => tx(["procedures"], "readonly", t => req(t.objectStore("procedures").getAll()));
+const getProcedure = id => tx(["procedures"], "readonly", t => req(t.objectStore("procedures").get(id)));
+async function saveRecord(store, rec, newPhotos, removedPhotoIds){
+  return tx([store,"photos"], "readwrite", t => {
+    const ps = t.objectStore("photos");
+    for(const p of newPhotos) ps.put(p);
+    for(const id of removedPhotoIds) ps.delete(id);
+    t.objectStore(store).put(rec);
+  });
+}
+async function deleteRecord(store, rec){
+  return tx([store,"photos"], "readwrite", t => {
+    for(const id of rec.photos || []) t.objectStore("photos").delete(id);
+    t.objectStore(store).delete(rec.id);
+  });
+}
+const saveIntervention = (iv, a, r) => saveRecord("interventions", iv, a, r);
+const deleteIntervention = iv => deleteRecord("interventions", iv);
+
+/* ---------- Outils ---------- */
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const normType = s => String(s ?? "").trim().toUpperCase();
+const normNum = s => String(s ?? "").trim();
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const fmtDate = s => { if(!s) return ""; const [y,m,d] = s.split("-"); return `${d}/${m}/${y}`; };
+const byDateDesc = (a,b) => (b.date||"").localeCompare(a.date||"") || (b.createdAt||0) - (a.createdAt||0);
+const numCmp = (a,b) => a.localeCompare(b, "fr", {numeric:true, sensitivity:"base"});
+const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
+const enc = encodeURIComponent, dec = decodeURIComponent;
+function toast(msg){
+  const el = document.createElement("div"); el.className = "toast"; el.textContent = msg;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+}
+const urlCache = new Map();
+async function photoURL(id){
+  if(urlCache.has(id)) return urlCache.get(id);
+  const p = await getPhoto(id); if(!p) return "";
+  const u = URL.createObjectURL(p.blob); urlCache.set(id, u); return u;
+}
+async function fillPhotos(root){
+  for(const img of root.querySelectorAll("img[data-photo]")) img.src = await photoURL(img.dataset.photo);
+}
+/* Petites fenêtres de dialogue intégrées (fonctionnent partout, même là où confirm() est bloqué) */
+function ask(msg, okText = "OK", cancelText = "Annuler"){
+  return new Promise(res => {
+    const v = document.createElement("div"); v.className = "viewer";
+    v.innerHTML = `<div class="card" style="max-width:340px;margin:16px"><p style="margin-top:0">${esc(msg)}</p>
+      <div class="actions">${cancelText ? `<button class="btn" data-r="0">${esc(cancelText)}</button>` : ""}<button class="btn primary" data-r="1">${esc(okText)}</button></div></div>`;
+    v.onclick = e => { const b = e.target.closest("button[data-r]"); if(b){ v.remove(); res(b.dataset.r === "1"); } };
+    document.body.appendChild(v);
+  });
+}
+const alert = msg => ask(msg, "OK", "");
+function openViewer(src){
+  const v = document.createElement("div"); v.className = "viewer";
+  v.innerHTML = `<img alt=""><button aria-label="Fermer">✕</button>`;
+  v.querySelector("img").src = src;
+  v.onclick = () => v.remove();
+  document.body.appendChild(v);
+}
+app.addEventListener("click", e => {
+  const img = e.target.closest("img[data-view]");
+  if(img && img.src) openViewer(img.src);
+});
+
+/* Réduit les photos (environ 1600 px) pour économiser la place sur le téléphone */
+async function shrinkImage(file){
+  try{
+    const bmp = await new Promise((res, rej) => {
+      const i = new Image(); const u = URL.createObjectURL(file);
+      i.onload = () => { URL.revokeObjectURL(u); res(i); };
+      i.onerror = () => { URL.revokeObjectURL(u); rej(new Error("image")); };
+      i.src = u;
+    });
+    const max = 1600, sc = Math.min(1, max / Math.max(bmp.naturalWidth, bmp.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.naturalWidth * sc); c.height = Math.round(bmp.naturalHeight * sc);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+    return blob || file;
+  }catch(e){ return file; }
+}
+
+/* ---------- En-tête ---------- */
+function setHeader(title, backHash, tab){
+  $("#title").textContent = title;
+  const b = $("#back");
+  b.hidden = !backHash;
+  b.onclick = () => { if(history.length > 1 && sessionStorage.getItem("nav")) history.back(); else location.hash = backHash; };
+  document.querySelectorAll("nav.tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
+  document.title = title === "Interventions" ? "Interventions" : title + " · Interventions";
+}
+const fab = (href, text = "＋ Nouvelle intervention") => `<a class="btn primary fab" href="${href}">${text}</a>`;
+
+/* ---------- Pages ---------- */
+async function pageHome(){
+  setHeader("Interventions", null, "home");
+  const all = await allInterventions();
+  const types = {};
+  for(const iv of all){
+    const t = types[iv.type] ||= {count:0, nums:new Set(), last:""};
+    t.count++; t.nums.add(iv.numero); if((iv.date||"") > t.last) t.last = iv.date;
+  }
+  const names = Object.keys(types).sort(numCmp);
+  if(!names.length){
+    app.innerHTML = `<div class="empty"><div class="big">🛠️</div>
+      <p><strong>Aucune intervention pour l'instant.</strong></p>
+      <p>Appuyez sur « Nouvelle intervention » pour noter la première.<br>Les dossiers par type de machine se créent tout seuls.</p></div>` + fab("#/nouveau");
+    return;
+  }
+  app.innerHTML = `<h2>Types de machine</h2><div class="list">` + names.map(n => {
+    const t = types[n];
+    return `<a class="row" href="#/type/${enc(n)}"><span class="ic">📁</span><span class="main">
+      <span class="t">${esc(n)}</span><span class="s">${plural(t.nums.size,"machine")} · dernière le ${fmtDate(t.last)}</span></span>
+      <span class="badge">${t.count}</span><span class="chev">›</span></a>`;
+  }).join("") + `</div><p class="hint">Le nombre à droite = nombre d'interventions.</p>` + fab("#/nouveau");
+}
+
+async function pageType(type){
+  setHeader(type, "#/", "home");
+  const all = (await allInterventions()).filter(iv => iv.type === type);
+  const nums = {};
+  for(const iv of all){
+    const n = nums[iv.numero] ||= {count:0, last:null};
+    n.count++; if(!n.last || byDateDesc(iv, n.last) < 0) n.last = iv;
+  }
+  const keys = Object.keys(nums).sort(numCmp);
+  if(!keys.length){ location.hash = "#/"; return; }
+  app.innerHTML = `<h2>Machines ${esc(type)}</h2><div class="list">` + keys.map(k => {
+    const n = nums[k];
+    return `<a class="row" href="#/machine/${enc(type)}/${enc(k)}"><span class="ic">📂</span><span class="main">
+      <span class="t">${esc(type)} n° ${esc(k)}</span><span class="s">${fmtDate(n.last.date)} · ${esc(n.last.defaut || "—")}</span></span>
+      <span class="badge">${n.count}</span><span class="chev">›</span></a>`;
+  }).join("") + `</div>` + fab(`#/nouveau/${enc(type)}`);
+}
+
+async function pageMachine(type, num){
+  setHeader(`${type} n° ${num}`, `#/type/${enc(type)}`, "home");
+  const all = (await allInterventions()).filter(iv => iv.type === type && iv.numero === num).sort(byDateDesc);
+  if(!all.length){ location.hash = `#/type/${enc(type)}`; return; }
+  app.innerHTML = `<h2>Historique · ${plural(all.length, "intervention")}</h2><div class="list">` + all.map(iv => `
+    <a class="row" href="#/intervention/${iv.id}"><span class="ic">📝</span><span class="main">
+      <span class="t">${fmtDate(iv.date)} — ${esc(iv.defaut || "Sans défaut indiqué")}</span>
+      <span class="s">${[esc((iv.notes || "").split("\n")[0]), iv.photos?.length ? "📷 " + iv.photos.length : ""].filter(Boolean).join(" · ") || "&nbsp;"}</span></span>
+      <span class="chev">›</span></a>`).join("") + `</div>` + fab(`#/nouveau/${enc(type)}/${enc(num)}`);
+}
+
+async function pageIntervention(id){
+  const iv = await getIntervention(id);
+  if(!iv){ location.hash = "#/"; return; }
+  setHeader(`${iv.type} n° ${iv.numero}`, `#/machine/${enc(iv.type)}/${enc(iv.numero)}`, "home");
+  app.innerHTML = `<div class="card">
+      <div class="meta">Intervention du ${fmtDate(iv.date)}</div>
+      <div class="field-t">Machine</div><div class="field-v"><strong>${esc(iv.type)} n° ${esc(iv.numero)}</strong></div>
+      <div class="field-t">Défaut de base</div><div class="field-v">${esc(iv.defaut) || "—"}</div>
+      <div class="field-t">Notes</div><div class="field-v">${esc(iv.notes) || "—"}</div>
+      ${iv.photos?.length ? `<div class="field-t">Photos</div><div class="photos">${iv.photos.map(p =>
+        `<div class="ph"><img data-photo="${p}" data-view alt="Photo"></div>`).join("")}</div>` : ""}
+    </div>
+    <div class="actions"><a class="btn" href="#/modifier/${iv.id}">✏️ Modifier</a><button class="btn danger" id="del">🗑️ Supprimer</button></div>`;
+  fillPhotos(app);
+  $("#del").onclick = async () => {
+    if(!(await ask("Supprimer définitivement cette intervention et ses photos ?", "Supprimer"))) return;
+    await deleteIntervention(iv); toast("Intervention supprimée");
+    location.hash = `#/machine/${enc(iv.type)}/${enc(iv.numero)}`;
+  };
+}
+
+const PHOTO_FIELD = `<label>Photos</label>
+    <div class="photo-btns">
+      <label class="btn">📷 Prendre une photo<input type="file" id="cam" accept="image/*" capture="environment" hidden></label>
+      <label class="btn">🖼️ Depuis la galerie<input type="file" id="gal" accept="image/*" multiple hidden></label>
+    </div>
+    <div class="photos" id="ph"></div>`;
+/* Gère l'ajout / le retrait de photos dans un formulaire */
+function photoEditor(ids){
+  const photos = (ids || []).map(id => ({id, saved:true}));
+  const added = [], removed = [];
+  const drawPhotos = async () => {
+    const box = $("#ph");
+    box.innerHTML = photos.map((p, i) => `<div class="ph"><img data-i="${i}" data-view alt="Photo"><button type="button" class="del" data-i="${i}" aria-label="Retirer">✕</button></div>`).join("");
+    for(const img of box.querySelectorAll("img")){
+      const p = photos[img.dataset.i];
+      img.src = p.saved ? await photoURL(p.id) : (p.url ||= URL.createObjectURL(p.blob));
+    }
+    box.querySelectorAll(".del").forEach(b => b.onclick = () => {
+      const p = photos[b.dataset.i];
+      if(p.saved) removed.push(p.id); else { const k = added.findIndex(a => a.id === p.id); if(k >= 0) added.splice(k, 1); }
+      photos.splice(b.dataset.i, 1); drawPhotos();
+    });
+  };
+  const onFiles = async e => {
+    const files = [...e.target.files]; e.target.value = "";
+    if(!files.length) return;
+    $("#save").disabled = true; $("#save").textContent = "Traitement des photos…";
+    for(const f of files){
+      const blob = await shrinkImage(f);
+      const p = {id: uid(), blob};
+      added.push(p); photos.push({id:p.id, blob, saved:false});
+    }
+    $("#save").disabled = false; $("#save").textContent = "Enregistrer";
+    drawPhotos();
+  };
+  $("#cam").onchange = onFiles; $("#gal").onchange = onFiles;
+  drawPhotos();
+  return {photos, added, removed};
+}
+
+async function pageForm(existingId, preType = "", preNum = ""){
+  const iv = existingId ? await getIntervention(existingId) : null;
+  if(existingId && !iv){ location.hash = "#/"; return; }
+  const all = await allInterventions();
+  const types = [...new Set(all.map(i => i.type))].sort(numCmp);
+  const back = iv ? `#/intervention/${iv.id}` : preNum ? `#/machine/${enc(preType)}/${enc(preNum)}` : preType ? `#/type/${enc(preType)}` : "#/";
+  setHeader(iv ? "Modifier l'intervention" : "Nouvelle intervention", back, "home");
+  app.innerHTML = `<form id="f" autocomplete="off">
+    <div class="two">
+      <div><label for="type">Type de machine</label><input type="text" id="type" list="types" placeholder="ex. C60" required value="${esc(iv?.type || preType)}" autocapitalize="characters"></div>
+      <div><label for="num">Numéro</label><input type="text" id="num" list="nums" placeholder="ex. 112" required value="${esc(iv?.numero || preNum)}" inputmode="text"></div>
+    </div>
+    <datalist id="types">${types.map(t => `<option value="${esc(t)}">`).join("")}</datalist>
+    <datalist id="nums"></datalist>
+    <label for="date">Date</label><input type="date" id="date" required value="${esc(iv?.date || today())}">
+    <label for="defaut">Défaut de base</label><input type="text" id="defaut" placeholder="ex. Problème de trajectoire" value="${esc(iv?.defaut || "")}">
+    <label for="notes">Notes</label><textarea id="notes" placeholder="Ce qui a été constaté, fait, pièces changées…">${esc(iv?.notes || "")}</textarea>
+    ${PHOTO_FIELD}
+    <button class="btn primary block" type="submit" id="save">Enregistrer</button>
+  </form>`;
+  const fillNums = () => {
+    const t = normType($("#type").value);
+    const nums = [...new Set(all.filter(i => i.type === t).map(i => i.numero))].sort(numCmp);
+    $("#nums").innerHTML = nums.map(n => `<option value="${esc(n)}">`).join("");
+  };
+  $("#type").addEventListener("input", fillNums); fillNums();
+  const {photos, added, removed} = photoEditor(iv?.photos);
+  $("#f").onsubmit = async e => {
+    e.preventDefault();
+    const type = normType($("#type").value), numero = normNum($("#num").value);
+    if(!type || !numero){ toast("Indiquez le type et le numéro de machine"); return; }
+    const now = Date.now();
+    const rec = {
+      id: iv?.id || uid(), type, numero, date: $("#date").value || today(),
+      defaut: $("#defaut").value.trim(), notes: $("#notes").value.trim(),
+      photos: photos.map(p => p.id), createdAt: iv?.createdAt || now, updatedAt: now
+    };
+    try{
+      await saveIntervention(rec, added, removed);
+      toast("Intervention enregistrée ✔");
+      sessionStorage.removeItem("nav");
+      location.replace(`#/intervention/${rec.id}`);
+      askPersist();
+    }catch(err){ alert("Impossible d'enregistrer : " + (err?.message || err)); }
+  };
+}
+
+/* ---------- Procédures ---------- */
+let lastProcFilter = "";
+async function pageProcedures(){
+  setHeader("Procédures", null, "proc");
+  const all = (await allProcedures()).sort((a,b) => a.nom.localeCompare(b.nom, "fr", {numeric:true, sensitivity:"base"}));
+  if(!all.length){
+    app.innerHTML = `<div class="empty"><div class="big">📘</div>
+      <p><strong>Aucune procédure pour l'instant.</strong></p>
+      <p>Notez ici les méthodes générales (réglages, démontages, contrôles…) avec des photos, pour les retrouver à tout moment.</p></div>` + fab("#/nouvelle-procedure", "＋ Nouvelle procédure");
+    return;
+  }
+  app.innerHTML = `<input type="search" id="pf" placeholder="Filtrer les procédures…" value="${esc(lastProcFilter)}">
+    <div id="pl" style="margin-top:12px"></div>` + fab("#/nouvelle-procedure", "＋ Nouvelle procédure");
+  const draw = () => {
+    lastProcFilter = $("#pf").value;
+    const words = norm(lastProcFilter).split(/\s+/).filter(Boolean);
+    const list = all.filter(p => { const t = norm([p.nom, p.machine, p.notes].join(" ")); return words.every(w => t.includes(w)); });
+    const groups = {};
+    for(const p of list) (groups[p.machine || ""] ||= []).push(p);
+    const keys = Object.keys(groups).sort((a,b) => (a === "") - (b === "") || numCmp(a,b));
+    $("#pl").innerHTML = list.length ? keys.map(k => `<h2>${k ? esc(k) : "Général"}</h2><div class="list">` + groups[k].map(p => `
+      <a class="row" href="#/procedure/${p.id}"><span class="ic">📘</span><span class="main">
+        <span class="t">${hl(p.nom, words)}</span>
+        <span class="s">${[esc((p.notes || "").split("\n")[0]), p.photos?.length ? "📷 " + p.photos.length : ""].filter(Boolean).join(" · ") || "&nbsp;"}</span></span>
+        <span class="chev">›</span></a>`).join("") + `</div>`).join("") : `<div class="empty">Aucune procédure ne correspond.</div>`;
+  };
+  $("#pf").addEventListener("input", draw); draw();
+}
+
+async function pageProcedure(id){
+  const p = await getProcedure(id);
+  if(!p){ location.hash = "#/procedures"; return; }
+  setHeader(p.nom, "#/procedures", "proc");
+  app.innerHTML = `<div class="card">
+      <div class="meta">Procédure${p.machine ? " · " + esc(p.machine) : ""} · mise à jour le ${new Date(p.updatedAt).toLocaleDateString("fr-FR")}</div>
+      <div class="field-t">Nom</div><div class="field-v"><strong>${esc(p.nom)}</strong></div>
+      <div class="field-t">Notes</div><div class="field-v">${esc(p.notes) || "—"}</div>
+      ${p.photos?.length ? `<div class="field-t">Photos</div><div class="photos">${p.photos.map(x =>
+        `<div class="ph"><img data-photo="${x}" data-view alt="Photo"></div>`).join("")}</div>` : ""}
+    </div>
+    <div class="actions"><a class="btn" href="#/modifier-procedure/${p.id}">✏️ Modifier</a><button class="btn danger" id="del">🗑️ Supprimer</button></div>`;
+  fillPhotos(app);
+  $("#del").onclick = async () => {
+    if(!(await ask("Supprimer définitivement cette procédure et ses photos ?", "Supprimer"))) return;
+    await deleteRecord("procedures", p); toast("Procédure supprimée");
+    location.hash = "#/procedures";
+  };
+}
+
+async function pageProcForm(existingId){
+  const p = existingId ? await getProcedure(existingId) : null;
+  if(existingId && !p){ location.hash = "#/procedures"; return; }
+  const types = [...new Set([...(await allInterventions()).map(i => i.type), ...(await allProcedures()).map(x => x.machine).filter(Boolean)])].sort(numCmp);
+  setHeader(p ? "Modifier la procédure" : "Nouvelle procédure", p ? `#/procedure/${p.id}` : "#/procedures", "proc");
+  app.innerHTML = `<form id="f" autocomplete="off">
+    <label for="nom">Nom de la procédure</label><input type="text" id="nom" required placeholder="ex. Réglage de la trajectoire" value="${esc(p?.nom || "")}">
+    <label for="machine">Type de machine <span class="meta">(facultatif)</span></label>
+    <input type="text" id="machine" list="types" placeholder="ex. C60, ou vide si général" value="${esc(p?.machine || "")}" autocapitalize="characters">
+    <datalist id="types">${types.map(t => `<option value="${esc(t)}">`).join("")}</datalist>
+    <label for="notes">Notes</label><textarea id="notes" style="min-height:200px" placeholder="Étapes, réglages, outils, précautions…">${esc(p?.notes || "")}</textarea>
+    ${PHOTO_FIELD}
+    <button class="btn primary block" type="submit" id="save">Enregistrer</button>
+  </form>`;
+  const {photos, added, removed} = photoEditor(p?.photos);
+  $("#f").onsubmit = async e => {
+    e.preventDefault();
+    const nom = $("#nom").value.trim();
+    if(!nom){ toast("Indiquez le nom de la procédure"); return; }
+    const now = Date.now();
+    const rec = { id: p?.id || uid(), nom, machine: normType($("#machine").value), notes: $("#notes").value.trim(),
+      photos: photos.map(x => x.id), createdAt: p?.createdAt || now, updatedAt: now };
+    try{
+      await saveRecord("procedures", rec, added, removed);
+      toast("Procédure enregistrée ✔");
+      location.replace(`#/procedure/${rec.id}`);
+      askPersist();
+    }catch(err){ alert("Impossible d'enregistrer : " + (err?.message || err)); }
+  };
+}
+
+let lastQuery = "";
+async function pageSearch(){
+  setHeader("Recherche", null, "search");
+  const all = await allInterventions();
+  const procs = await allProcedures();
+  app.innerHTML = `<input type="search" id="q" placeholder="ex. problème de trajectoire" value="${esc(lastQuery)}" enterkeyhint="search">
+    <p class="hint">Cherche dans toutes les interventions (type, numéro, défaut, notes) et toutes les procédures.</p>
+    <div id="res"></div>`;
+  const q = $("#q");
+  const index = all.map(iv => ({iv, text: norm([iv.type, iv.numero, iv.type + iv.numero, iv.defaut, iv.notes].join(" \n "))}));
+  const pindex = procs.map(p => ({p, text: norm([p.nom, p.machine, p.notes].join(" \n "))}));
+  const run = () => {
+    lastQuery = q.value;
+    const words = norm(q.value).split(/\s+/).filter(Boolean);
+    const res = $("#res");
+    if(!words.length){ res.innerHTML = all.length || procs.length ? "" : `<div class="empty">Rien d'enregistré pour l'instant.</div>`; return; }
+    const hits = index.filter(x => words.every(w => x.text.includes(w))).map(x => x.iv).sort(byDateDesc);
+    const phits = pindex.filter(x => words.every(w => x.text.includes(w))).map(x => x.p).sort((a,b) => a.nom.localeCompare(b.nom, "fr"));
+    if(!hits.length && !phits.length){ res.innerHTML = `<div class="empty">Aucun résultat pour « ${esc(q.value)} ».</div>`; return; }
+    res.innerHTML = (phits.length ? `<h2>Procédures · ${phits.length}</h2><div class="list">` + phits.map(p => `
+      <a class="row" href="#/procedure/${p.id}"><span class="ic">📘</span><span class="main">
+        <span class="t">${hl(p.nom, words)}${p.machine ? " · " + hl(p.machine, words) : ""}</span>
+        ${snippet(p.notes, words)}</span><span class="chev">›</span></a>`).join("") + `</div>` : "")
+      + (hits.length ? `<h2>Interventions · ${hits.length}</h2><div class="list">` + hits.map(iv => `
+      <a class="row" href="#/intervention/${iv.id}"><span class="ic">📝</span><span class="main">
+        <span class="t">${hl(iv.type + " n° " + iv.numero, words)} · ${fmtDate(iv.date)}</span>
+        <span class="s" style="white-space:normal">${hl(iv.defaut || "—", words)}</span>
+        ${snippet(iv.notes, words)}</span><span class="chev">›</span></a>`).join("") + `</div>` : "");
+  };
+  q.addEventListener("input", run); run();
+  if(!lastQuery) q.focus();
+}
+/* Surligne les mots trouvés (sans tenir compte des accents ni des majuscules) */
+function hl(text, words){
+  text = String(text ?? "");
+  const n = norm(text);
+  if(n.length !== text.length) return esc(text);
+  const marks = new Array(text.length).fill(false);
+  for(const w of words){ let i = n.indexOf(w); while(i >= 0){ for(let k = i; k < i + w.length; k++) marks[k] = true; i = n.indexOf(w, i + 1); } }
+  let out = "", on = false;
+  for(let i = 0; i < text.length; i++){
+    if(marks[i] && !on){ out += "<mark>"; on = true; }
+    if(!marks[i] && on){ out += "</mark>"; on = false; }
+    out += esc(text[i]);
+  }
+  return out + (on ? "</mark>" : "");
+}
+function snippet(notes, words){
+  if(!notes) return "";
+  const n = norm(notes);
+  let pos = -1;
+  for(const w of words){ const i = n.indexOf(w); if(i >= 0 && (pos < 0 || i < pos)) pos = i; }
+  if(pos < 0) return "";
+  const start = Math.max(0, pos - 40), end = Math.min(notes.length, pos + 120);
+  return `<span class="s" style="white-space:normal">${start > 0 ? "…" : ""}${hl(notes.slice(start, end), words)}${end < notes.length ? "…" : ""}</span>`;
+}
+
+/* ---------- Sauvegarde / restauration ---------- */
+const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+const dataURLToBlob = async u => (await fetch(u)).blob();
+
+async function pageBackup(){
+  setHeader("Sauvegarde", null, "backup");
+  const all = await allInterventions();
+  const procs = await allProcedures();
+  const nPhotos = [...all, ...procs].reduce((s, i) => s + (i.photos?.length || 0), 0);
+  let used = "";
+  try{ const e = await navigator.storage?.estimate?.(); if(e?.usage) used = ` · ${(e.usage / 1048576).toFixed(1)} Mo utilisés`; }catch(e){}
+  let persisted = false; try{ persisted = await navigator.storage?.persisted?.(); }catch(e){}
+  app.innerHTML = `
+    <div class="card"><div class="status"><span class="dot"></span>
+      <span>Tout est enregistré <strong>uniquement sur ce téléphone</strong>. Rien n'est envoyé sur internet.</span></div>
+      <p class="meta">${plural(all.length, "intervention")} · ${plural(procs.length, "procédure")} · ${plural(nPhotos, "photo")}${used}${persisted ? " · stockage protégé ✔" : ""}</p>
+    </div>
+    <h2>Faire une copie de sécurité</h2>
+    <div class="card">
+      <p style="margin-top:0">Crée un fichier avec toutes vos interventions, procédures et photos. Gardez-le dans « Fichiers » (iPhone) ou « Téléchargements » (Android), ou sur un ordinateur.
+      C'est ce fichier qui permet de tout récupérer si vous changez de téléphone ou si l'app est effacée.</p>
+      <button class="btn primary block" id="exp">💾 Créer la copie de sécurité</button>
+      <p class="hint" id="lastexp"></p>
+    </div>
+    <h2>Restaurer une copie</h2>
+    <div class="card">
+      <p style="margin-top:0">Choisissez un fichier de copie de sécurité. Les interventions et procédures qu'il contient sont ajoutées (celles déjà présentes sont mises à jour, rien n'est effacé).</p>
+      <button class="btn block" id="imp">📂 Choisir un fichier de copie</button>
+    </div>`;
+  const last = localStorage.getItem("lastExport");
+  if(last) $("#lastexp").textContent = "Dernière copie : " + new Date(+last).toLocaleString("fr-FR");
+  $("#exp").onclick = exportBackup;
+  $("#imp").onclick = () => $("#importFile").click();
+}
+
+async function exportBackup(){
+  const btn = $("#exp"); btn.disabled = true; btn.textContent = "Préparation…";
+  try{
+    const all = await allInterventions();
+    const procs = await allProcedures();
+    const photos = {};
+    for(const iv of [...all, ...procs]) for(const id of iv.photos || []){
+      const p = await getPhoto(id); if(p) photos[id] = await blobToDataURL(p.blob);
+    }
+    const data = JSON.stringify({app:"interventions", version:2, exportedAt:new Date().toISOString(), interventions:all, procedures:procs, photos});
+    const name = `interventions-sauvegarde-${today()}.json`;
+    const file = new File([data], name, {type:"application/json"});
+    let done = false;
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:name}); done = true; }
+      catch(e){ if(e.name === "AbortError"){ return; } }
+    }
+    if(!done){
+      const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    }
+    localStorage.setItem("lastExport", Date.now());
+    toast("Copie de sécurité créée ✔");
+    $("#lastexp").textContent = "Dernière copie : " + new Date().toLocaleString("fr-FR");
+  }catch(e){ alert("La copie a échoué : " + (e?.message || e)); }
+  finally{ btn.disabled = false; btn.textContent = "💾 Créer la copie de sécurité"; }
+}
+
+$("#importFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if(!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    if(data.app !== "interventions" || !Array.isArray(data.interventions)) throw new Error("Ce fichier n'est pas une copie de l'app Interventions.");
+    const photoRecs = [];
+    for(const [id, url] of Object.entries(data.photos || {})) photoRecs.push({id, blob: await dataURLToBlob(url)});
+    const procs = Array.isArray(data.procedures) ? data.procedures : [];
+    await tx(["interventions","procedures","photos"], "readwrite", t => {
+      for(const p of photoRecs) t.objectStore("photos").put(p);
+      for(const iv of data.interventions) t.objectStore("interventions").put(iv);
+      for(const p of procs) t.objectStore("procedures").put(p);
+    });
+    toast(`Restauré : ${plural(data.interventions.length, "intervention")}, ${plural(procs.length, "procédure")} ✔`);
+    route();
+  }catch(err){ alert("Restauration impossible : " + (err?.message || err)); }
+};
+
+/* Demande au téléphone de ne pas effacer les données automatiquement */
+async function askPersist(){ try{ if(navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch(e){} }
+
+/* ---------- Navigation ---------- */
+async function route(){
+  const parts = location.hash.replace(/^#\/?/, "").split("/").map(dec);
+  window.scrollTo(0, 0);
+  try{
+    switch(parts[0]){
+      case "": case undefined: return await pageHome();
+      case "type": return await pageType(parts[1]);
+      case "machine": return await pageMachine(parts[1], parts[2]);
+      case "intervention": return await pageIntervention(parts[1]);
+      case "nouveau": return await pageForm(null, parts[1] || "", parts[2] || "");
+      case "modifier": return await pageForm(parts[1]);
+      case "procedures": return await pageProcedures();
+      case "procedure": return await pageProcedure(parts[1]);
+      case "nouvelle-procedure": return await pageProcForm(null);
+      case "modifier-procedure": return await pageProcForm(parts[1]);
+      case "recherche": return await pageSearch();
+      case "sauvegarde": return await pageBackup();
+      default: location.hash = "#/";
+    }
+  }catch(e){
+    app.innerHTML = `<div class="empty"><div class="big">⚠️</div><p>Le stockage du téléphone n'est pas accessible.</p><p class="meta">${esc(e?.message || e)}</p></div>`;
+  }
+}
+window.addEventListener("hashchange", () => { sessionStorage.setItem("nav", "1"); route(); });
+route();
+askPersist();
+if("serviceWorker" in navigator && location.protocol === "https:"){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
