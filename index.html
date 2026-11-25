@@ -103,6 +103,7 @@ mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
 <input type="file" id="importFile" hidden>
 <script>
 "use strict";
+const APP_VERSION = "5";
 /* ---------- Stockage local (IndexedDB, rien ne part sur internet) ---------- */
 const DB_NAME = "interventions-db";
 let dbp = null;
@@ -589,10 +590,16 @@ async function pageBackup(){
     <div class="card">
       <p style="margin-top:0">Choisissez un fichier de copie de sécurité. Les fiches qu'il contient sont ajoutées à celles du téléphone, rien n'est effacé.</p>
       <button class="btn block" id="imp">📂 Choisir un fichier de copie</button>
+    </div>
+    <h2>Version de l'app</h2>
+    <div class="card">
+      <p style="margin-top:0">Version ${APP_VERSION}. Les mises à jour n'effacent jamais vos fiches.</p>
+      <button class="btn block" id="upd">🔄 Rechercher une mise à jour</button>
     </div>`;
   const last = localStorage.getItem("lastExport");
   if(last) $("#lastexp").textContent = "Dernière copie : " + new Date(+last).toLocaleString("fr-FR");
   $("#exp").onclick = () => exportBackup($("#exp"), "copie");
+  $("#upd").onclick = () => checkUpdate($("#upd"));
   $("#send").onclick = () => exportBackup($("#send"), "partage");
   $("#imp").onclick = $("#recv").onclick = () => $("#importFile").click();
   $("#me").onchange = () => {
@@ -744,8 +751,29 @@ async function route(){
 window.addEventListener("hashchange", () => { sessionStorage.setItem("nav", "1"); route(); });
 route();
 askPersist();
+/* Mises à jour : vérifie à chaque ouverture et recharge tout seul quand une nouvelle version est installée */
 if("serviceWorker" in navigator && location.protocol === "https:"){
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if(hadController && !reloading){ reloading = true; location.reload(); }
+  });
+  navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(reg => {
+    reg.update().catch(() => {});
+    document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") reg.update().catch(() => {}); });
+  }).catch(() => {});
+}
+async function checkUpdate(btn){
+  btn.disabled = true; btn.textContent = "Recherche…";
+  try{
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if(reg) await reg.update();
+    const r = await fetch("index.html?v=" + Date.now(), {cache: "no-store"});
+    const m = (await r.text()).match(/const APP_VERSION = "([^"]+)"/);
+    if(m && m[1] !== APP_VERSION){ toast("Nouvelle version trouvée, mise à jour…"); setTimeout(() => location.reload(), 800); return; }
+    toast("L'app est à jour ✔");
+  }catch(e){ toast("Pas de connexion internet : réessayez plus tard"); }
+  btn.disabled = false; btn.textContent = "🔄 Rechercher une mise à jour";
 }
 </script>
 </body>
