@@ -301,7 +301,7 @@ async function pageIntervention(id){
   if(!iv){ location.hash = "#/"; return; }
   setHeader(`${iv.type} n° ${iv.numero}`, `#/machine/${enc(iv.type)}/${enc(iv.numero)}`, "home");
   app.innerHTML = `<div class="card">
-      <div class="meta">Intervention du ${fmtDate(iv.date)}${byWho(iv)}</div>
+      <div class="meta" style="font-size:16px">Intervention du ${fmtDate(iv.date)}${iv.auteur ? ` par <strong style="color:var(--text)">${esc(iv.auteur)}</strong>` : ""}${iv.modifiePar && iv.auteur && iv.modifiePar !== iv.auteur ? ` <span style="font-size:14px">(modifiée par ${esc(iv.modifiePar)})</span>` : ""}</div>
       <div class="field-t">Machine</div><div class="field-v"><strong>${esc(iv.type)} n° ${esc(iv.numero)}</strong></div>
       <div class="field-t">Défaut de base</div><div class="field-v">${esc(iv.defaut) || "—"}</div>
       <div class="field-t">Notes</div><div class="field-v">${esc(iv.notes) || "—"}</div>
@@ -714,6 +714,13 @@ async function route(){
   window.scrollTo(0, 0);
   let canStore = true; try{ localStorage.setItem("_t", "1"); }catch(e){ canStore = false; }
   if(canStore && !myName()) return pageWelcome();
+  if(canStore && !localStorage.getItem("migAuteur")){
+    const n = myName();
+    await tx(["interventions","procedures"], "readwrite", async t => {
+      for(const st of ["interventions","procedures"]) for(const r of await req(t.objectStore(st).getAll())) if(!r.auteur){ r.auteur = n; t.objectStore(st).put(r); }
+    }).catch(() => {});
+    localStorage.setItem("migAuteur", "1");
+  }
   try{
     switch(parts[0]){
       case "": case undefined: return await pageHome();
